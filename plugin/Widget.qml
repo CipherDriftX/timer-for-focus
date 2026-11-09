@@ -361,6 +361,14 @@ Panel {
 
         PanelSeparator { foreground: root.foreground }
 
+        // Above the list, so a long list cannot push Done out of reach.
+        Action {
+          visible: root.clearing || (root.status.entries || []).length > 0
+          x: parent.width - width
+          text: root.clearing ? "Done" : "Clear a block"
+          onClicked: root.toggleClearing()
+        }
+
         LogSection {
           visible: !root.clearing
           title: "TODAY"
@@ -384,10 +392,11 @@ Panel {
           width: parent.width
           spacing: Style.space(6)
 
-          Label { text: "CLEAR BLOCKS" }
+          Label { text: "CLEAR BLOCKS ONE BY ONE" }
 
           Repeater {
-            model: root.status.entries || []
+            // Every logged row, so built only while the list is open.
+            model: root.clearing ? (root.status.entries || []) : []
 
             delegate: Item {
               required property var modelData
@@ -428,13 +437,6 @@ Panel {
               }
             }
           }
-        }
-
-        Action {
-          visible: root.clearing || (root.status.entries || []).length > 0
-          x: parent.width - width
-          text: root.clearing ? "Done" : "Clear blocks"
-          onClicked: root.toggleClearing()
         }
       }
     }
