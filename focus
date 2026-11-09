@@ -23,9 +23,13 @@ MAX_TICK_GAP = 120
 MIN_LOGGED_SECONDS = 60
 DEFAULT_GOAL = 3 * 3600
 MAX_GOAL = 24 * 3600
+# Fixed points of Napoleon's evening at the Tuileries: dinner and the official
+# bedtime (Masson, Napoleon at Home, vol. 2). "n" runs a block until the next one.
+ANCHORS = [(18, "dinner"), (22, "bed")]
 
 USAGE = """usage:
-  focus start "what exactly" [time]   time: 3h, 90m, 1h30, 1:30 (default 3h)
+  focus start "what exactly" [time]   time: 3h, 90m, 1h30, 1:30, n (default 3h)
+                                      n = until Napoleon's next fixed point
   focus next "what exactly"           switch task, the block keeps counting
   focus stop                          end the block early
   focus log [all]                     hours by task
@@ -50,11 +54,31 @@ def save(state):
     temporary.replace(STATE)
 
 
+def next_anchor():
+    now = datetime.now()
+    for hour, name in ANCHORS:
+        target = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+        if target > now:
+            return target, name
+    return None
+
+
+def hint():
+    anchor = next_anchor()
+    napoleon = f" · n = till {anchor[0]:%H:%M} {anchor[1]}" if anchor else ""
+    return f"How long? Enter = 3h · 1h · 90m{napoleon}"
+
+
 def parse_goal(text):
-    """Turn 3h, 90m, 1h30 or 1:30 into seconds. A bare 3 is hours, a bare 90 is minutes."""
+    """Turn 3h, 90m, 1h30, 1:30 or n into seconds. A bare 3 is hours, a bare 90 is minutes."""
     text = text.strip().lower()
     if not text:
         return DEFAULT_GOAL
+    if text == "n":
+        anchor = next_anchor()
+        if not anchor:
+            raise ValueError("No Napoleon fixed point left today. Try 3h or 90m.")
+        return int((anchor[0] - datetime.now()).total_seconds())
     if match := re.fullmatch(r"(\d+)[h:](\d{1,2})?m?", text):
         seconds = int(match[1]) * 3600 + int(match[2] or 0) * 60
     elif match := re.fullmatch(r"(\d+)m", text):
@@ -160,10 +184,11 @@ def payload(state):
     total, blocks = totals([row for row in read_rows(state) if row["started"][:10] == today])
     summary = f"Today {total} · {blocks}"
     if not state:
-        return {"running": False, "text": "0:00", "tooltip": f"Focus: click to start\n{summary}"}
+        return {"running": False, "text": "0:00", "hint": hint(),
+                "tooltip": f"Focus: click to start\n{summary}"}
     done = clock(state["elapsed"])
     tooltip = f"{state['task']}\n{done} of {clock(state['goal'])}\n{summary}"
-    return {"running": True, "text": done, "tooltip": tooltip}
+    return {"running": True, "text": done, "task": state["task"], "tooltip": tooltip}
 
 
 def start(task, goal_text):
