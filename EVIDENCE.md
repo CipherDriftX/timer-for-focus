@@ -44,7 +44,7 @@ Sources are people who were in the room. The memoirs are not lab data and they d
 
 **Hours per day.** Napoleon told Méneval he had worked sixteen hours a day since leaving military school (self-report, Méneval vol. 1). Masson's arithmetic gives 15 (24 minus 6 sleep minus 3 for meals and leisure, a figure Masson calls too high). Roederer said 18. Nobody measured it. These hours include audiences, meals with reports read aloud, and theatre: "he worked everywhere — while dining, at the ball, at the theatre" (Masson). They are not solo focused hours.
 
-**There is no recorded block system.** No memoir gives a fixed block length. The closest numbers are the 1 to 2 hours a day per subject and the fixed points of the day.
+**There is no recorded block system.** No memoir gives a fixed block length. The closest numbers are the 1 to 2 hours a day on army returns in the 1806 letter to Joseph, which covers one subject only, and the fixed points of the day.
 
 ### What the timer takes from him
 
@@ -53,7 +53,7 @@ Sources are people who were in the room. The memoirs are not lab data and they d
 | Shut, guarded doors | Do Not Disturb during a block |
 | Drawers, one open at a time | `next` closes one task and opens another |
 | Many subjects in one sitting | Block clock keeps running across tasks |
-| 1 to 2 hours a day per subject | `1h` and `2h` work directly, and `focus log` shows hours per subject |
+| 1 to 2 hours a day on army returns (one subject, one letter) | `1h` and `2h` work directly, and `focus log` shows hours per subject |
 | 18:00 dinner, 22:00 bed | `n` runs until the next of these |
 
 ### What the timer does not copy
