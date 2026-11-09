@@ -55,8 +55,12 @@ def refresh_bar():
 
 
 def clock(seconds):
-    minutes = int(seconds // 60)
-    return f"{minutes // 60}:{minutes % 60:02d}"
+    seconds = int(seconds)
+    return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
+
+
+def hours_minutes(seconds):
+    return clock(round(seconds))[:-3]
 
 
 def load():
@@ -156,23 +160,34 @@ def read_rows(state):
     return rows
 
 
-def totals(rows):
-    """Return (total as H:MM, 'N blocks done') for these rows."""
-    seconds = sum(float(row["minutes"]) for row in rows) * 60
-    blocks = len({row["block"] for row in rows if row["status"] == "done"})
-    return clock(round(seconds)), f"{blocks} block{'' if blocks == 1 else 's'} done"
-
-
-def section(title, rows):
-    total, blocks = totals(rows)
+def summarize(rows):
+    """Total time, finished blocks and time per task, biggest first."""
     names, minutes = {}, {}
     for row in rows:
         key = row["task"].strip().lower()
         names.setdefault(key, row["task"].strip())
         minutes[key] = minutes.get(key, 0) + float(row["minutes"])
-    lines = [f"{title}  {total}  {blocks}"]
-    for key in sorted(minutes, key=minutes.get, reverse=True):
-        lines.append(f"{clock(round(minutes[key] * 60)):>6}  {names[key]}")
+    blocks = len({row["block"] for row in rows if row["status"] == "done"})
+    return {
+        "total": hours_minutes(sum(minutes.values()) * 60),
+        "blocks": f"{blocks} block{'' if blocks == 1 else 's'} done",
+        "tasks": [{"time": hours_minutes(minutes[key] * 60), "name": names[key]}
+                  for key in sorted(minutes, key=minutes.get, reverse=True)],
+    }
+
+
+def periods(rows):
+    """Split rows into (today, this week)."""
+    today = date.today()
+    monday = (today - timedelta(days=today.weekday())).isoformat()
+    today = today.isoformat()
+    return ([row for row in rows if row["started"][:10] == today],
+            [row for row in rows if row["started"][:10] >= monday])
+
+
+def section(title, summary):
+    lines = [f"{title}  {summary['total']}  {summary['blocks']}"]
+    lines += [f"{task['time']:>6}  {task['name']}" for task in summary["tasks"]]
     return "\n".join(lines)
 
 
@@ -181,15 +196,13 @@ def report(period):
     if not rows:
         print("Nothing logged yet.")
         return
-    today = date.today()
-    monday = (today - timedelta(days=today.weekday())).isoformat()
-    today = today.isoformat()
     if period == "all":
-        print(section("All time", rows))
+        print(section("All time", summarize(rows)))
         return
-    print(section("Today", [row for row in rows if row["started"][:10] == today]))
+    today, week = periods(rows)
+    print(section("Today", summarize(today)))
     print()
-    print(section("This week", [row for row in rows if row["started"][:10] >= monday]))
+    print(section("This week", summarize(week)))
 
 
 def finish(state, status):
@@ -200,16 +213,24 @@ def finish(state, status):
     refresh_bar()
 
 
+def anchor_payload():
+    anchor = next_anchor()
+    if not anchor:
+        return None
+    left = (anchor[0] - datetime.now()).total_seconds()
+    return {"label": f"Till {anchor[0]:%H:%M} {anchor[1]}", "time": clock(left)}
+
+
 def payload(state):
-    today = date.today().isoformat()
-    total, blocks = totals([row for row in read_rows(state) if row["started"][:10] == today])
-    summary = f"Today {total} · {blocks}"
+    today, week = (summarize(rows) for rows in periods(read_rows(state)))
+    summary = f"Today {today['total']} · {today['blocks']}"
+    data = {"running": bool(state), "today": today, "week": week, "anchor": anchor_payload()}
     if not state:
-        return {"running": False, "text": "0:00", "hint": hint(),
-                "tooltip": f"Focus: click to start\n{summary}"}
+        return {**data, "text": clock(0), "hint": hint(), "tooltip": f"Focus: click to open\n{summary}"}
     done = clock(state["elapsed"])
     tooltip = f"{state['task']}\n{done} of {clock(state['goal'])}\n{summary}"
-    return {"running": True, "text": done, "task": state["task"], "tooltip": tooltip}
+    return {**data, "text": done, "elapsed": state["elapsed"], "goal": state["goal"],
+            "task": state["task"], "tooltip": tooltip}
 
 
 def start(task, goal_text):
