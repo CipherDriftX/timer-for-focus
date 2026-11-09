@@ -1,27 +1,33 @@
 #!/usr/bin/env python3
 """focus: a silent timer that counts forward through a block of work."""
 
+import csv
 import fcntl
 import json
 import os
 import re
 import sys
 import time
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 HOME = Path.home()
 STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "focus/current.json"
+LOG = Path(os.environ.get("XDG_DATA_HOME", HOME / ".local/share")) / "focus/log.csv"
+FIELDS = ["block", "started", "ended", "task", "minutes", "goal_minutes", "status"]
 
 # A gap between ticks longer than this means the laptop slept or the shell was
 # down, so that time does not count as work.
 MAX_TICK_GAP = 120
+# Anything shorter was a misclick, not work.
+MIN_LOGGED_SECONDS = 60
 DEFAULT_GOAL = 3 * 3600
 MAX_GOAL = 24 * 3600
 
 USAGE = """usage:
   focus start "what exactly" [time]   time: 3h, 90m, 1h30, 1:30 (default 3h)
   focus stop                          end the block early
+  focus log [all]                     hours by task
   focus tick                          update the block, print bar JSON"""
 
 
@@ -70,15 +76,91 @@ def accrue(state):
     state["last_tick"] = now
 
 
-def finish():
+def row_for(state, status):
+    return {
+        "block": state["started"],
+        "started": state["started"],
+        "ended": datetime.now().isoformat(timespec="seconds"),
+        "task": state["task"],
+        "minutes": round(state["elapsed"] / 60, 1),
+        "goal_minutes": state["goal"] // 60,
+        "status": status,
+    }
+
+
+def write_row(state, status):
+    if state["elapsed"] < MIN_LOGGED_SECONDS:
+        return
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    is_new = not LOG.exists()
+    with LOG.open("a", newline="") as file:
+        writer = csv.DictWriter(file, FIELDS)
+        if is_new:
+            writer.writeheader()
+        writer.writerow(row_for(state, status))
+
+
+def read_rows(state):
+    """Every logged row, plus the block running now."""
+    try:
+        with LOG.open(newline="") as file:
+            rows = list(csv.DictReader(file))
+    except FileNotFoundError:
+        rows = []
+    if state:
+        rows.append(row_for(state, "running"))
+    return rows
+
+
+def totals(rows):
+    """Return (total as H:MM, 'N blocks done') for these rows."""
+    seconds = sum(float(row["minutes"]) for row in rows) * 60
+    blocks = len({row["block"] for row in rows if row["status"] == "done"})
+    return clock(round(seconds)), f"{blocks} block{'' if blocks == 1 else 's'} done"
+
+
+def section(title, rows):
+    total, blocks = totals(rows)
+    names, minutes = {}, {}
+    for row in rows:
+        key = row["task"].strip().lower()
+        names.setdefault(key, row["task"].strip())
+        minutes[key] = minutes.get(key, 0) + float(row["minutes"])
+    lines = [f"{title}  {total}  {blocks}"]
+    for key in sorted(minutes, key=minutes.get, reverse=True):
+        lines.append(f"{clock(round(minutes[key] * 60)):>6}  {names[key]}")
+    return "\n".join(lines)
+
+
+def report(period):
+    rows = read_rows(load())
+    if not rows:
+        print("Nothing logged yet.")
+        return
+    today = date.today()
+    monday = (today - timedelta(days=today.weekday())).isoformat()
+    today = today.isoformat()
+    if period == "all":
+        print(section("All time", rows))
+        return
+    print(section("Today", [row for row in rows if row["started"][:10] == today]))
+    print()
+    print(section("This week", [row for row in rows if row["started"][:10] >= monday]))
+
+
+def finish(state, status):
+    write_row(state, status)
     STATE.unlink(missing_ok=True)
 
 
 def payload(state):
+    today = date.today().isoformat()
+    total, blocks = totals([row for row in read_rows(state) if row["started"][:10] == today])
+    summary = f"Today {total} · {blocks}"
     if not state:
-        return {"running": False, "text": "0:00", "tooltip": "Focus: click to start"}
+        return {"running": False, "text": "0:00", "tooltip": f"Focus: click to start\n{summary}"}
     done = clock(state["elapsed"])
-    tooltip = f"{state['task']}\n{done} of {clock(state['goal'])}"
+    tooltip = f"{state['task']}\n{done} of {clock(state['goal'])}\n{summary}"
     return {"running": True, "text": done, "tooltip": tooltip}
 
 
@@ -106,7 +188,7 @@ def stop():
     if not state:
         sys.exit("No block is running.")
     accrue(state)
-    finish()
+    finish(state, "closed")
 
 
 def tick():
@@ -114,7 +196,8 @@ def tick():
     if state:
         accrue(state)
         if state["elapsed"] >= state["goal"]:
-            finish()
+            state["elapsed"] = state["goal"]
+            finish(state, "done")
             state = None
         else:
             save(state)
@@ -135,6 +218,8 @@ def main():
         stop()
     elif command == "tick" and not args:
         tick()
+    elif command == "log" and args in ([], ["all"]):
+        report(args[0] if args else "")
     else:
         sys.exit(USAGE)
 
