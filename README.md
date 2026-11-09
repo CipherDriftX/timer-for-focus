@@ -12,6 +12,8 @@ This links `focus` into `~/.local/bin` and adds the widget to the bar, on the ri
 
 Your Omarchy runs the Quickshell bar, so this is a shell plugin. It will not load in Waybar.
 
+After changing anything in `plugin/`, run `omarchy restart shell`. A plugin rescan did not load the new code.
+
 ## Use
 
 | Do this | What happens |
