@@ -9,7 +9,7 @@ Every design choice and where it comes from. No study has tested this timer. The
 | Silence notifications during a block | Notifications alone hurt an attention task, even when people did not touch the phone. The harm was about as large as calling or texting. | Stothart, Mitchum, Yehnert 2015, *JEP: HPP* 41(4), [10.1037/xhp0000100](https://doi.org/10.1037/xhp0000100) | Direct. 212 students, phone alerts, not desktop alerts. |
 | Log every block | Monitoring progress raised goal attainment, d = 0.40 (95% CI 0.32 to 0.48), 138 randomized studies, N = 19,951. Effects were larger when progress was physically recorded. | Harkin et al. 2016, *Psych. Bulletin* 142(2), [10.1037/bul0000025](https://doi.org/10.1037/bul0000025) | Direct for logging. |
 | Name the task before starting | Implementation intentions: d = .65 across 94 tests. | Gollwitzer & Sheeran 2006, [10.1016/S0065-2601(06)38002-1](https://doi.org/10.1016/S0065-2601(06)38002-1) | Partial. The real method is an if-then plan; naming a task and a time is a weaker form. A 642-test update exists ([10.1080/10463283.2024.2334563](https://doi.org/10.1080/10463283.2024.2334563)); its numbers were not read. |
-| Minutes only, no seconds, nothing moves | Steady motion does not grab attention. The start of motion does. | Abrams & Christ 2003, *Psych. Science* 14(5), PMID 12930472 | Inference. Lab letter-search task. Nobody has tested a bar clock. |
+| Nothing blinks or animates | Steady motion does not grab attention. The start of motion does. | Abrams & Christ 2003, *Psych. Science* 14(5), PMID 12930472 | Inference. Lab letter-search task. Nobody has tested a bar clock. By this logic a seconds display, which changes once a second, is worse than minutes only. It shows seconds because that was the requirement. |
 | Do not switch tasks casually | Attention stays on an unfinished task and the next task suffers. | Leroy 2009, *OBHDP* 109(2), 168-181 | Direct. |
 
 ## What the studies do not support
@@ -53,8 +53,8 @@ Sources are people who were in the room. The memoirs are not lab data and they d
 | Shut, guarded doors | Do Not Disturb during a block |
 | Drawers, one open at a time | `next` closes one task and opens another |
 | Many subjects in one sitting | Block clock keeps running across tasks |
-| 1 to 2 hours a day on army returns (one subject, one letter) | `1h` and `2h` work directly, and `focus log` shows hours per subject |
-| 18:00 dinner, 22:00 bed | `n` runs until the next of these |
+| 1 to 2 hours a day on army returns (one subject, one letter) | `01:00:00` and `02:00:00` work directly, and the log shows hours per subject |
+| 18:00 dinner, 22:00 bed | A dashboard button fills in the exact time until the next of these |
 
 ### What the timer does not copy
 

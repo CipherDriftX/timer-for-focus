@@ -16,26 +16,30 @@ After changing anything in `plugin/`, run `omarchy restart shell`. A plugin resc
 
 ## Use
 
-| Do this | What happens |
-|---|---|
-| Click `0:00` | Type what exactly you are doing, press Enter, then type how long |
-| Enter on the time prompt | 3 hours |
-| `1h`, `90m`, `1h30`, `1:30` | That length |
-| `n` | Runs until Napoleon's next fixed point: 18:00 dinner, then 22:00 bed |
-| Click the running timer, type a task | Closes the current task, opens the next one, block keeps counting |
-| Click the running timer, press Enter | Ends the block early and logs it |
-| Right click | Hours by task, today and this week |
-| Hover | Current task, progress, today's total |
+Click the timer. A small dashboard opens under it, with hours by task for today and this week. Esc or a click outside closes it.
 
-The same commands work in a terminal: `focus start "Physics L5 problems" 3h`, `focus next "..."`, `focus stop`, `focus log`, `focus log all`.
+| No block running | What happens |
+|---|---|
+| Type digits in `HH:MM:SS`, press Enter | Sets the block length. It starts at `03:00:00` |
+| `Till 18:00 dinner` button | Fills in the exact time left until Napoleon's next fixed point: 18:00 dinner, then 22:00 bed |
+| Write the task, press Enter | Starts the block. The box grows as you type |
+
+| Block running | What happens |
+|---|---|
+| Write the next task, press Enter | Closes the current task, opens the next one, block keeps counting |
+| `End block` | Ends the block early and logs it |
+
+Hover the timer for the current task, progress and today's total.
+
+The same commands work in a terminal: `focus start "Physics L5 problems" 03:00:00`, `focus next "..."`, `focus stop`, `focus log`, `focus log all`. Time is `HH:MM:SS` only. Any other format is refused, so nothing is guessed.
 
 ## What it does during a block
 
-- Shows hours and minutes only. The number changes once a minute. Nothing blinks, moves or changes color.
+- Shows `HH:MM:SS`, counting forward. Nothing blinks or changes color.
 - Turns on Do Not Disturb, then puts it back the way it was.
 - At the end, one silent notification that stays on screen until you dismiss it.
 
-Time while the laptop sleeps does not count. A task shorter than one minute is treated as a misclick and is not logged.
+Time while the laptop sleeps does not count. A task you leave within one minute is treated as a misclick and is not logged.
 
 ## Data
 
