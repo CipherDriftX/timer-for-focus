@@ -5,8 +5,9 @@
   "version": "1.0.0",
   "author": "CipherDriftX",
   "description": "Silent timer that counts forward through a block of work.",
-  "kinds": ["bar-widget"],
-  "entryPoints": { "barWidget": "Widget.qml" },
+  "kinds": ["bar-widget", "overlay"],
+  "keepLoaded": true,
+  "entryPoints": { "barWidget": "Widget.qml", "overlay": "Overlay.qml" },
   "barWidget": {
     "displayName": "Focus",
     "description": "Silent forward-counting focus timer",
