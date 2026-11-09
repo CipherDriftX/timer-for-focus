@@ -118,7 +118,7 @@ def row_for(state, status):
 
 
 def write_row(state, status):
-    if state["task_elapsed"] < MIN_LOGGED_SECONDS:
+    if status != "done" and state["task_elapsed"] < MIN_LOGGED_SECONDS:
         return
     LOG.parent.mkdir(parents=True, exist_ok=True)
     is_new = not LOG.exists()
