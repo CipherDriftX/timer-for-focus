@@ -26,6 +26,7 @@ MAX_GOAL = 24 * 3600
 
 USAGE = """usage:
   focus start "what exactly" [time]   time: 3h, 90m, 1h30, 1:30 (default 3h)
+  focus next "what exactly"           switch task, the block keeps counting
   focus stop                          end the block early
   focus log [all]                     hours by task
   focus tick                          update the block, print bar JSON"""
@@ -73,23 +74,24 @@ def accrue(state):
     delta = now - state["last_tick"]
     if 0 <= delta <= MAX_TICK_GAP:
         state["elapsed"] += delta
+        state["task_elapsed"] += delta
     state["last_tick"] = now
 
 
 def row_for(state, status):
     return {
         "block": state["started"],
-        "started": state["started"],
+        "started": state["task_started"],
         "ended": datetime.now().isoformat(timespec="seconds"),
         "task": state["task"],
-        "minutes": round(state["elapsed"] / 60, 1),
+        "minutes": round(state["task_elapsed"] / 60, 1),
         "goal_minutes": state["goal"] // 60,
         "status": status,
     }
 
 
 def write_row(state, status):
-    if state["elapsed"] < MIN_LOGGED_SECONDS:
+    if state["task_elapsed"] < MIN_LOGGED_SECONDS:
         return
     LOG.parent.mkdir(parents=True, exist_ok=True)
     is_new = not LOG.exists()
@@ -174,13 +176,30 @@ def start(task, goal_text):
         goal = parse_goal(goal_text)
     except ValueError as error:
         sys.exit(str(error))
+    now = datetime.now().isoformat(timespec="seconds")
     save({
-        "started": datetime.now().isoformat(timespec="seconds"),
+        "started": now,
         "goal": goal,
         "elapsed": 0.0,
         "task": task,
+        "task_started": now,
+        "task_elapsed": 0.0,
         "last_tick": time.time(),
     })
+
+
+def next_task(task):
+    """Close the open task and open another. The block clock does not stop."""
+    state = load()
+    if not state:
+        sys.exit("No block is running.")
+    task = task.strip()
+    if not task:
+        sys.exit("Say what exactly you are doing next.")
+    accrue(state)
+    write_row(state, "next")
+    state.update(task=task, task_started=datetime.now().isoformat(timespec="seconds"), task_elapsed=0.0)
+    save(state)
 
 
 def stop():
@@ -196,6 +215,7 @@ def tick():
     if state:
         accrue(state)
         if state["elapsed"] >= state["goal"]:
+            state["task_elapsed"] -= state["elapsed"] - state["goal"]
             state["elapsed"] = state["goal"]
             finish(state, "done")
             state = None
@@ -214,6 +234,8 @@ def main():
 
     if command == "start" and 1 <= len(args) <= 2:
         start(args[0], args[1] if len(args) == 2 else "")
+    elif command == "next" and len(args) == 1:
+        next_task(args[0])
     elif command == "stop" and not args:
         stop()
     elif command == "tick" and not args:
