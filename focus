@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""focus: a silent timer that counts forward through a block of work."""
+
+import fcntl
+import json
+import os
+import re
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+
+HOME = Path.home()
+STATE = Path(os.environ.get("XDG_STATE_HOME", HOME / ".local/state")) / "focus/current.json"
+
+# A gap between ticks longer than this means the laptop slept or the shell was
+# down, so that time does not count as work.
+MAX_TICK_GAP = 120
+DEFAULT_GOAL = 3 * 3600
+MAX_GOAL = 24 * 3600
+
+USAGE = """usage:
+  focus start "what exactly" [time]   time: 3h, 90m, 1h30, 1:30 (default 3h)
+  focus stop                          end the block early
+  focus tick                          update the block, print bar JSON"""
+
+
+def clock(seconds):
+    minutes = int(seconds // 60)
+    return f"{minutes // 60}:{minutes % 60:02d}"
+
+
+def load():
+    try:
+        return json.loads(STATE.read_text())
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+
+def save(state):
+    temporary = STATE.with_suffix(f".{os.getpid()}.tmp")
+    temporary.write_text(json.dumps(state))
+    temporary.replace(STATE)
+
+
+def parse_goal(text):
+    """Turn 3h, 90m, 1h30 or 1:30 into seconds. A bare 3 is hours, a bare 90 is minutes."""
+    text = text.strip().lower()
+    if not text:
+        return DEFAULT_GOAL
+    if match := re.fullmatch(r"(\d+)[h:](\d{1,2})?m?", text):
+        seconds = int(match[1]) * 3600 + int(match[2] or 0) * 60
+    elif match := re.fullmatch(r"(\d+)m", text):
+        seconds = int(match[1]) * 60
+    elif text.isdigit():
+        seconds = int(text) * (3600 if int(text) <= 12 else 60)
+    else:
+        raise ValueError(f"Could not read '{text}'. Try 3h, 90m or 1h30.")
+    if not 0 < seconds <= MAX_GOAL:
+        raise ValueError("A block must be longer than 0 and at most 24 hours.")
+    return seconds
+
+
+def accrue(state):
+    """Add the time since the last tick, unless the laptop was asleep."""
+    now = time.time()
+    delta = now - state["last_tick"]
+    if 0 <= delta <= MAX_TICK_GAP:
+        state["elapsed"] += delta
+    state["last_tick"] = now
+
+
+def finish():
+    STATE.unlink(missing_ok=True)
+
+
+def payload(state):
+    if not state:
+        return {"running": False, "text": "0:00", "tooltip": "Focus: click to start"}
+    done = clock(state["elapsed"])
+    tooltip = f"{state['task']}\n{done} of {clock(state['goal'])}"
+    return {"running": True, "text": done, "tooltip": tooltip}
+
+
+def start(task, goal_text):
+    if load():
+        sys.exit("A block is already running.")
+    task = task.strip()
+    if not task:
+        sys.exit("Say what exactly you are doing.")
+    try:
+        goal = parse_goal(goal_text)
+    except ValueError as error:
+        sys.exit(str(error))
+    save({
+        "started": datetime.now().isoformat(timespec="seconds"),
+        "goal": goal,
+        "elapsed": 0.0,
+        "task": task,
+        "last_tick": time.time(),
+    })
+
+
+def stop():
+    state = load()
+    if not state:
+        sys.exit("No block is running.")
+    accrue(state)
+    finish()
+
+
+def tick():
+    state = load()
+    if state:
+        accrue(state)
+        if state["elapsed"] >= state["goal"]:
+            finish()
+            state = None
+        else:
+            save(state)
+    print(json.dumps(payload(state)))
+
+
+def main():
+    args = sys.argv[1:]
+    command = args.pop(0) if args else ""
+
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    lock = open(STATE.with_suffix(".lock"), "w")
+    fcntl.flock(lock, fcntl.LOCK_EX)
+
+    if command == "start" and 1 <= len(args) <= 2:
+        start(args[0], args[1] if len(args) == 2 else "")
+    elif command == "stop" and not args:
+        stop()
+    elif command == "tick" and not args:
+        tick()
+    else:
+        sys.exit(USAGE)
+
+
+if __name__ == "__main__":
+    main()
