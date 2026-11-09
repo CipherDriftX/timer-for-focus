@@ -22,15 +22,14 @@ FIELDS = ["block", "started", "ended", "task", "minutes", "goal_minutes", "statu
 MAX_TICK_GAP = 120
 # Anything shorter was a misclick, not work.
 MIN_LOGGED_SECONDS = 60
-DEFAULT_GOAL = 3 * 3600
 MAX_GOAL = 24 * 3600
 # Fixed points of Napoleon's evening at the Tuileries: dinner and the official
-# bedtime (Masson, Napoleon at Home, vol. 2). "n" runs a block until the next one.
+# bedtime (Masson, Napoleon at Home, vol. 2). The dashboard can fill in the exact
+# time left until the next one.
 ANCHORS = [(18, "dinner"), (22, "bed")]
 
 USAGE = """usage:
-  focus start "what exactly" [time]   time: 3h, 90m, 1h30, 1:30, n (default 3h)
-                                      n = until Napoleon's next fixed point
+  focus start "what exactly" HH:MM:SS
   focus next "what exactly"           switch task, the block keeps counting
   focus stop                          end the block early
   focus log [all]                     hours by task
@@ -85,30 +84,12 @@ def next_anchor():
     return None
 
 
-def hint():
-    anchor = next_anchor()
-    napoleon = f" · n = {anchor[0]:%H:%M} {anchor[1]}" if anchor else ""
-    return f"How long? Enter = 3h · 90m{napoleon}"
-
-
 def parse_goal(text):
-    """Turn 3h, 90m, 1h30, 1:30 or n into seconds. A bare 3 is hours, a bare 90 is minutes."""
-    text = text.strip().lower()
-    if not text:
-        return DEFAULT_GOAL
-    if text == "n":
-        anchor = next_anchor()
-        if not anchor:
-            raise ValueError("No Napoleon fixed point left today. Try 3h or 90m.")
-        return int((anchor[0] - datetime.now()).total_seconds())
-    if match := re.fullmatch(r"(\d+)[h:](\d{1,2})?m?", text):
-        seconds = int(match[1]) * 3600 + int(match[2] or 0) * 60
-    elif match := re.fullmatch(r"(\d+)m", text):
-        seconds = int(match[1]) * 60
-    elif text.isdigit():
-        seconds = int(text) * (3600 if int(text) <= 12 else 60)
-    else:
-        raise ValueError(f"Could not read '{text}'. Try 3h, 90m or 1h30.")
+    """Read HH:MM:SS exactly. Nothing is guessed."""
+    match = re.fullmatch(r"(\d{2}):([0-5]\d):([0-5]\d)", text.strip())
+    if not match:
+        raise ValueError("Use HH:MM:SS, for example 03:00:00.")
+    seconds = int(match[1]) * 3600 + int(match[2]) * 60 + int(match[3])
     if not 0 < seconds <= MAX_GOAL:
         raise ValueError("A block must be longer than 0 and at most 24 hours.")
     return seconds
@@ -226,11 +207,9 @@ def payload(state):
     summary = f"Today {today['total']} · {today['blocks']}"
     data = {"running": bool(state), "today": today, "week": week, "anchor": anchor_payload()}
     if not state:
-        return {**data, "text": clock(0), "hint": hint(), "tooltip": f"Focus: click to open\n{summary}"}
-    done = clock(state["elapsed"])
-    tooltip = f"{state['task']}\n{done} of {clock(state['goal'])}\n{summary}"
-    return {**data, "text": done, "elapsed": state["elapsed"], "goal": state["goal"],
-            "task": state["task"], "tooltip": tooltip}
+        return {**data, "tooltip": f"Focus: click to open\n{summary}"}
+    tooltip = f"{state['task']}\n{clock(state['elapsed'])} of {clock(state['goal'])}\n{summary}"
+    return {**data, "elapsed": state["elapsed"], "goal": state["goal"], "task": state["task"], "tooltip": tooltip}
 
 
 def start(task, goal_text):
@@ -306,8 +285,8 @@ def main():
     lock = open(STATE.with_suffix(".lock"), "w")
     fcntl.flock(lock, fcntl.LOCK_EX)
 
-    if command == "start" and 1 <= len(args) <= 2:
-        start(args[0], args[1] if len(args) == 2 else "")
+    if command == "start" and len(args) == 2:
+        start(args[0], args[1])
     elif command == "next" and len(args) == 1:
         next_task(args[0])
     elif command == "stop" and not args:
