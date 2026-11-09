@@ -2,12 +2,15 @@
   "schemaVersion": 1,
   "id": "cipherdriftx.focus",
   "name": "Focus",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "author": "CipherDriftX",
   "description": "Silent timer that counts forward through a block of work.",
-  "kinds": ["bar-widget", "overlay"],
-  "keepLoaded": true,
-  "entryPoints": { "barWidget": "Widget.qml", "overlay": "Overlay.qml" },
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  },
   "barWidget": {
     "displayName": "Focus",
     "description": "Silent forward-counting focus timer",
