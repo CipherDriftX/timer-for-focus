@@ -23,6 +23,8 @@ MAX_TICK_GAP = 120
 # Anything shorter was a misclick, not work.
 MIN_LOGGED_SECONDS = 60
 MAX_GOAL = 24 * 3600
+# How many logged rows the dashboard lists for clearing.
+RECENT_ENTRIES = 30
 # Fixed points of Napoleon's evening at the Tuileries: dinner and the official
 # bedtime (Masson, Napoleon at Home, vol. 2). The dashboard can fill in the exact
 # time left until the next one.
@@ -32,6 +34,7 @@ USAGE = """usage:
   focus start "what exactly" HH:MM:SS
   focus next "what exactly"           switch task, the block keeps counting
   focus stop                          end the block early
+  focus clear <started>               remove one row, by its started column in the log
   focus log [all]                     hours by task
   focus tick                          update the block, print bar JSON"""
 
@@ -166,6 +169,17 @@ def periods(rows):
             [row for row in rows if row["started"][:10] >= monday])
 
 
+def entries(rows):
+    """Logged rows, newest first, for the dashboard's clear list."""
+    logged = [row for row in rows if row["status"] != "running"]
+    logged.sort(key=lambda row: row["started"], reverse=True)
+    return [{"id": row["started"],
+             "when": f"{datetime.fromisoformat(row['started']):%a %H:%M}",
+             "time": hours_minutes(float(row["minutes"]) * 60),
+             "task": row["task"]}
+            for row in logged[:RECENT_ENTRIES]]
+
+
 def section(title, summary):
     lines = [f"{title}  {summary['total']}  {summary['blocks']}"]
     lines += [f"{task['time']:>6}  {task['name']}" for task in summary["tasks"]]
@@ -203,9 +217,11 @@ def anchor_payload():
 
 
 def payload(state):
-    today, week = (summarize(rows) for rows in periods(read_rows(state)))
+    rows = read_rows(state)
+    today, week = (summarize(period) for period in periods(rows))
     summary = f"Today {today['total']} · {today['blocks']}"
-    data = {"running": bool(state), "today": today, "week": week, "anchor": anchor_payload()}
+    data = {"running": bool(state), "today": today, "week": week, "entries": entries(rows),
+            "anchor": anchor_payload()}
     if not state:
         return {**data, "tooltip": f"Focus: click to open\n{summary}"}
     tooltip = f"{state['task']}\n{clock(state['elapsed'])} of {clock(state['goal'])}\n{summary}"
@@ -260,6 +276,20 @@ def stop():
     finish(state, "closed")
 
 
+def clear(started):
+    rows = read_rows(None)
+    kept = [row for row in rows if row["started"] != started]
+    if len(kept) == len(rows):
+        sys.exit("No logged block started at that time.")
+    temporary = LOG.with_suffix(f".{os.getpid()}.tmp")
+    with temporary.open("w", newline="") as file:
+        writer = csv.DictWriter(file, FIELDS)
+        writer.writeheader()
+        writer.writerows(kept)
+    temporary.replace(LOG)
+    refresh_bar()
+
+
 def tick():
     state = load()
     if state:
@@ -291,6 +321,8 @@ def main():
         next_task(args[0])
     elif command == "stop" and not args:
         stop()
+    elif command == "clear" and len(args) == 1:
+        clear(args[0])
     elif command == "tick" and not args:
         tick()
     elif command == "log" and args in ([], ["all"]):
