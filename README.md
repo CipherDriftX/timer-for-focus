@@ -31,7 +31,7 @@ Click the timer. A small dashboard opens under it, with hours by task for today 
 
 Hover the timer for the current task, progress and today's total.
 
-`Clear blocks` at the bottom of the dashboard lists the newest 30 logged rows. Press `Clear`, then `Sure?` on the same row to remove it. This cannot be undone. A block split with `next` has one row per task, so each task clears on its own. The running block is not listed until it ends.
+`Clear a block` in the dashboard lists every logged row, newest first. Press `Clear`, then `Sure?` on a row to remove that row only. This cannot be undone. There is no button that wipes the whole log. A block split with `next` has one row per task, so each task clears on its own. The running block is not listed until it ends.
 
 The same commands work in a terminal: `focus start "Physics L5 problems" 03:00:00`, `focus next "..."`, `focus stop`, `focus clear 2026-11-09T19:44:32` (the row's `started` value), `focus log`, `focus log all`. Time is `HH:MM:SS` only. Any other format is refused, so nothing is guessed.
 
