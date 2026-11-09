@@ -23,8 +23,6 @@ MAX_TICK_GAP = 120
 # Anything shorter was a misclick, not work.
 MIN_LOGGED_SECONDS = 60
 MAX_GOAL = 24 * 3600
-# How many logged rows the dashboard lists for clearing.
-RECENT_ENTRIES = 30
 # Fixed points of Napoleon's evening at the Tuileries: dinner and the official
 # bedtime (Masson, Napoleon at Home, vol. 2). The dashboard can fill in the exact
 # time left until the next one.
@@ -177,7 +175,7 @@ def entries(rows):
              "when": f"{datetime.fromisoformat(row['started']):%a %H:%M}",
              "time": hours_minutes(float(row["minutes"]) * 60),
              "task": row["task"]}
-            for row in logged[:RECENT_ENTRIES]]
+            for row in logged]
 
 
 def section(title, summary):
