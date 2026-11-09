@@ -6,6 +6,7 @@ import fcntl
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from datetime import date, datetime, timedelta
@@ -34,6 +35,23 @@ USAGE = """usage:
   focus stop                          end the block early
   focus log [all]                     hours by task
   focus tick                          update the block, print bar JSON"""
+
+
+def run(*command):
+    """Best effort: the timer has to keep working if the desktop cannot be reached."""
+    try:
+        return subprocess.run(command, capture_output=True, text=True, timeout=5).stdout.strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def set_dnd(on):
+    run("omarchy-shell", "-q", "notifications", "setDnd", "on" if on else "off")
+    run("omarchy-shell", "-q", "omarchy.indicators", "refresh")
+
+
+def refresh_bar():
+    run("omarchy-shell", "-q", "cipherdriftx.focus", "refresh")
 
 
 def clock(seconds):
@@ -177,6 +195,9 @@ def report(period):
 def finish(state, status):
     write_row(state, status)
     STATE.unlink(missing_ok=True)
+    if not state["dnd_was_on"]:
+        set_dnd(False)
+    refresh_bar()
 
 
 def payload(state):
@@ -210,7 +231,10 @@ def start(task, goal_text):
         "task_started": now,
         "task_elapsed": 0.0,
         "last_tick": time.time(),
+        "dnd_was_on": run("omarchy-shell", "notifications", "isDnd") == "on",
     })
+    set_dnd(True)
+    refresh_bar()
 
 
 def next_task(task):
@@ -225,6 +249,7 @@ def next_task(task):
     write_row(state, "next")
     state.update(task=task, task_started=datetime.now().isoformat(timespec="seconds"), task_elapsed=0.0)
     save(state)
+    refresh_bar()
 
 
 def stop():
@@ -243,6 +268,9 @@ def tick():
             state["task_elapsed"] -= state["elapsed"] - state["goal"]
             state["elapsed"] = state["goal"]
             finish(state, "done")
+            # Critical: stays on screen until dismissed, so a missed alert is not
+            # lost. The shell plays no sound for notifications.
+            run("notify-send", "-u", "critical", "Block done", f"{state['task']} · {clock(state['goal'])}")
             state = None
         else:
             save(state)
