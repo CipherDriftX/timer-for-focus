@@ -25,6 +25,9 @@ Panel {
   // seconds without starting a process every second. A sleeping laptop fires no
   // beats, so sleep never shows up as work.
   property real elapsed: 0
+  property bool clearing: false
+  // The row whose Clear was clicked once. A second click removes it.
+  property string armed: ""
 
   readonly property bool running: !!status.running
   readonly property int goal: status.goal || 0
@@ -57,6 +60,22 @@ Panel {
     if (nextField.text.trim() !== "") root.run(["next", nextField.text.trim()])
   }
 
+  function toggleClearing() {
+    root.clearing = !root.clearing
+    root.armed = ""
+    flick.contentY = 0
+  }
+
+  // Runs without closing the panel, so several rows can go in one visit.
+  function clearEntry(id) {
+    if (root.armed !== id) {
+      root.armed = id
+      return
+    }
+    root.armed = ""
+    Quickshell.execDetached([root.focusBin, "clear", id])
+  }
+
   function keepVisible(field) {
     if (!field.activeFocus) return
     var top = field.mapToItem(column, 0, field.cursorRectangle.y).y
@@ -73,6 +92,8 @@ Panel {
     taskField.text = ""
     nextField.text = ""
     flick.contentY = 0
+    clearing = false
+    armed = ""
   }
 
   component FieldFrame: BorderSurface {
@@ -341,15 +362,79 @@ Panel {
         PanelSeparator { foreground: root.foreground }
 
         LogSection {
+          visible: !root.clearing
           title: "TODAY"
           summary: root.status.today || ({})
         }
 
-        PanelSeparator { foreground: root.foreground }
+        PanelSeparator {
+          visible: !root.clearing
+          foreground: root.foreground
+        }
 
         LogSection {
+          visible: !root.clearing
           title: "THIS WEEK"
           summary: root.status.week || ({})
+        }
+
+        Column {
+          id: clearList
+          visible: root.clearing
+          width: parent.width
+          spacing: Style.space(6)
+
+          Label { text: "CLEAR BLOCKS" }
+
+          Repeater {
+            model: root.status.entries || []
+
+            delegate: Item {
+              required property var modelData
+              readonly property bool isArmed: root.armed === modelData.id
+              width: clearList.width
+              height: Math.max(entryClear.implicitHeight, entryTask.implicitHeight)
+
+              Text {
+                id: entryWhen
+                anchors.verticalCenter: entryClear.verticalCenter
+                textFormat: Text.PlainText
+                text: modelData.when + "  " + modelData.time
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+              }
+
+              Text {
+                id: entryTask
+                anchors.left: entryWhen.right
+                anchors.leftMargin: Style.space(10)
+                anchors.right: entryClear.left
+                anchors.rightMargin: Style.space(8)
+                textFormat: Text.PlainText
+                text: modelData.task
+                wrapMode: Text.Wrap
+                color: root.foreground
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+              }
+
+              Action {
+                id: entryClear
+                anchors.right: parent.right
+                text: isArmed ? "Sure?" : "Clear"
+                foreground: isArmed ? Commons.Color.urgent : root.foreground
+                onClicked: root.clearEntry(modelData.id)
+              }
+            }
+          }
+        }
+
+        Action {
+          visible: root.clearing || (root.status.entries || []).length > 0
+          x: parent.width - width
+          text: root.clearing ? "Done" : "Clear blocks"
+          onClicked: root.toggleClearing()
         }
       }
     }
