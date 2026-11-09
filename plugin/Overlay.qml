@@ -36,14 +36,14 @@ Item {
   property int contentMargin: Style.spacing.panelPadding
   property int headerHeight: Math.max(Style.space(34), Style.font.title + Style.spacing.controlPaddingY * 2)
   property int cardWidth: Math.min(reporting ? Math.max(Style.space(320), label.implicitWidth + contentMargin * 2 + Style.space(8))
-                                             : Style.space(480),
+                                             : Style.space(560),
                                    panel.width - Style.gapsOut * 2)
   property int cardHeight: Math.min(contentMargin * 2 + Math.max(headerHeight, reporting ? label.implicitHeight : 0),
                                     panel.height - Style.gapsOut * 2)
 
   readonly property string promptText: {
     if (step === "time") return invalid ? "Try 3h, 90m or 1h30" : (status.hint || "How long?")
-    if (step === "switch") return status.task + " · " + status.text + ". Type next task, Enter ends block"
+    if (step === "switch") return "Next task, or Enter to end the block"
     return "What exactly are you doing?"
   }
 

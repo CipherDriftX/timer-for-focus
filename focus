@@ -83,8 +83,8 @@ def next_anchor():
 
 def hint():
     anchor = next_anchor()
-    napoleon = f" · n = till {anchor[0]:%H:%M} {anchor[1]}" if anchor else ""
-    return f"How long? Enter = 3h · 1h · 90m{napoleon}"
+    napoleon = f" · n = {anchor[0]:%H:%M} {anchor[1]}" if anchor else ""
+    return f"How long? Enter = 3h · 90m{napoleon}"
 
 
 def parse_goal(text):
